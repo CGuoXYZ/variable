@@ -1,3 +1,4 @@
+import exception
 import gleam/bool
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/otp/actor.{type Next, type StartError, Started}
@@ -120,6 +121,8 @@ fn receive(
   // 向进程发送消息
   process.send(var.subject, msg(term.deadline(timeout), subject))
 
+  // 清除监控器
+  use <- exception.defer(fn() { process.demonitor_process(monitor) })
   // 获取响应
   case process.selector_receive(selector, timeout) {
     // 超时
