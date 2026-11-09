@@ -8,9 +8,9 @@ pub opaque type Subscribes(v) {
 
 /// 订阅循环接收的消息
 pub opaque type SubMessage(v) {
-  // 关闭
+  /// 关闭
   Closure
-  // 通知
+  /// 通知
   Notify(old: v, new: v)
 }
 
