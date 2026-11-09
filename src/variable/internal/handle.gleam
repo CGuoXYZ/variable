@@ -1,8 +1,10 @@
+import gleam/bool
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/otp/actor.{type Next, type StartError, Started}
 import gleam/result
 
 import variable/internal/subscribe.{type Subscribes}
+import variable/internal/term.{type Term}
 
 /// 外部携带的句柄
 pub opaque type Var(v) {
@@ -16,13 +18,18 @@ type Val(v) {
 
 /// 进程的消息
 type Message(v) {
-  Closure
-  Get(subject: Subject(v))
-  Set(subject: Subject(v), new: v)
-  Update(subject: Subject(v), update: fn(v) -> v)
-  Subscribe(subject: Subject(v), name: String, body: fn(v, v) -> Nil)
-  Unsubscribe(subject: Subject(v), name: String)
-  UnsubscribeAll(subject: Subject(v))
+  Closure(term: Term)
+  Get(term: Term, subject: Subject(v))
+  Set(term: Term, subject: Subject(v), new: v)
+  Update(term: Term, subject: Subject(v), update: fn(v) -> v)
+  Subscribe(
+    term: Term,
+    subject: Subject(v),
+    name: String,
+    body: fn(v, v) -> Nil,
+  )
+  Unsubscribe(term: Term, subject: Subject(v), name: String)
+  UnsubscribeAll(term: Term, subject: Subject(v))
 }
 
 pub type HDLError {
@@ -46,7 +53,7 @@ pub fn new(val: v) -> Result(Var(v), StartError) {
 
 /// 关闭值进程
 pub fn closure(var: Var(v)) -> Nil {
-  var.subject |> process.send(Closure)
+  var.subject |> process.send(Closure(term: term.forever()))
 }
 
 /// 获取值
@@ -56,7 +63,8 @@ pub fn get(var: Var(v), timeout: Int) -> Result(v, HDLError) {
 
 /// 设置值并返回新值
 pub fn set(var: Var(v), timeout: Int, new: v) -> Result(v, HDLError) {
-  receive(var, timeout, Set(subject: _, new:))
+  use term, subject <- receive(var, timeout)
+  Set(term:, subject:, new:)
 }
 
 /// 更新值并返回新值
@@ -65,7 +73,8 @@ pub fn update(
   timeout: Int,
   update: fn(v) -> v,
 ) -> Result(v, HDLError) {
-  receive(var, timeout, Update(subject: _, update:))
+  use term, subject <- receive(var, timeout)
+  Update(term:, subject:, update:)
 }
 
 /// 订阅函数
@@ -75,7 +84,8 @@ pub fn subscribe(
   name: String,
   body: fn(v, v) -> Nil,
 ) -> Result(Nil, HDLError) {
-  receive(var, timeout, Subscribe(subject: _, name:, body:))
+  fn(term, subject) { Subscribe(term:, subject:, name:, body:) }
+  |> receive(var, timeout, _)
   |> result.map(fn(_) { Nil })
 }
 
@@ -85,7 +95,8 @@ pub fn unsubscribe(
   timeout: Int,
   name: String,
 ) -> Result(Nil, HDLError) {
-  receive(var, timeout, Unsubscribe(subject: _, name:))
+  fn(term, subject) { Unsubscribe(term:, subject:, name:) }
+  |> receive(var, timeout, _)
   |> result.map(fn(_) { Nil })
 }
 
@@ -93,7 +104,7 @@ pub fn unsubscribe(
 fn receive(
   var: Var(v),
   timeout: Int,
-  msg: fn(Subject(v)) -> Message(v),
+  msg: fn(Term, Subject(v)) -> Message(v),
 ) -> Result(v, HDLError) {
   // 新建通道
   let subject = process.new_subject()
@@ -107,7 +118,7 @@ fn receive(
     |> process.select_specific_monitor(monitor, fn(_) { Error(Death) })
 
   // 向进程发送消息
-  process.send(var.subject, msg(subject))
+  process.send(var.subject, msg(term.deadline(timeout), subject))
 
   // 获取响应
   case process.selector_receive(selector, timeout) {
@@ -124,14 +135,16 @@ fn receive(
 }
 
 fn handle(val: Val(v), msg: Message(v)) -> Next(Val(v), Message(v)) {
+  use <- bool.guard(term.is_expired(msg.term), actor.continue(val))
   case msg {
-    Closure -> actor.stop()
-    Get(subject:) -> get_msg(val, subject)
-    Set(subject:, new:) -> set_msg(val, subject, new)
-    Update(subject:, update:) -> update_msg(val, subject, update)
-    Subscribe(subject:, name:, body:) -> subscribe_msg(val, subject, name, body)
-    Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
-    UnsubscribeAll(subject:) -> unsubscribe_all_msg(val, subject)
+    Closure(..) -> actor.stop()
+    Get(subject:, ..) -> get_msg(val, subject)
+    Set(subject:, new:, ..) -> set_msg(val, subject, new)
+    Update(subject:, update:, ..) -> update_msg(val, subject, update)
+    Subscribe(subject:, name:, body:, ..) ->
+      subscribe_msg(val, subject, name, body)
+    Unsubscribe(subject:, name:, ..) -> unsubscribe_msg(val, subject, name)
+    UnsubscribeAll(subject:, ..) -> unsubscribe_all_msg(val, subject)
   }
 }
 
