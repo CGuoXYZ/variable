@@ -76,7 +76,7 @@ pub fn unsubscribe(var: Var(v), name: String) -> Result(Nil, Death) {
   |> result.map(fn(_) { Nil })
 }
 
-/// 向进程获取获取响应
+/// 向进程获取响应
 fn receive(var: Var(v), msg: fn(Subject(v)) -> Message(v)) -> Result(v, Death) {
   let subject = process.new_subject()
   let selector =
