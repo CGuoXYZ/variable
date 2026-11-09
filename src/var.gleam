@@ -7,7 +7,7 @@ pub fn scope(val: v, body: fn(Var(v)) -> Nil) -> Result(Nil, StartError) {
   case handle.new(val) {
     Error(error) -> Error(error)
     Ok(var) -> {
-      use <- exception.on_crash(fn() { handle.closure(var) })
+      use <- exception.defer(fn() { handle.closure(var) })
       body(var) |> Ok()
     }
   }
