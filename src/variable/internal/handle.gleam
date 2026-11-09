@@ -1,3 +1,4 @@
+import exception
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/otp/actor.{type Next, type StartError, Started}
 import gleam/result
@@ -26,7 +27,9 @@ type Message(v) {
 }
 
 /// 死亡
-pub type Death
+pub type Death {
+  Death
+}
 
 /// 使用指定初始值创建新的值进程
 pub fn new(val: v) -> Result(Var(v), StartError) {
@@ -79,12 +82,15 @@ pub fn unsubscribe(var: Var(v), name: String) -> Result(Nil, Death) {
 /// 向进程获取响应
 fn receive(var: Var(v), msg: fn(Subject(v)) -> Message(v)) -> Result(v, Death) {
   let subject = process.new_subject()
+  let monitor = process.monitor(var.pid)
   let selector =
     process.new_selector()
     |> process.select_map(subject, Ok)
+    |> process.select_specific_monitor(monitor, fn(_) { Error(Death) })
 
   process.send(var.subject, msg(subject))
 
+  use <- exception.defer(fn() { process.demonitor_process(monitor) })
   process.selector_receive_forever(selector)
 }
 
