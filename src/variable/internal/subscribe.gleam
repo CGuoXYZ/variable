@@ -7,7 +7,7 @@ pub opaque type Subscribes(v) {
 }
 
 /// 订阅循环接收的消息
-pub opaque type SubMessage(v) {
+type SubMessage(v) {
   /// 关闭
   Closure
   /// 通知
