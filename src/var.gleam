@@ -1,7 +1,7 @@
 import exception
 import gleam/otp/actor.{type StartError}
 
-import variable/internal/handle.{type HDLError, type Var}
+import variable/internal/handle.{type Death, type Var}
 
 pub fn scope(val: v, body: fn(Var(v)) -> Nil) -> Result(Nil, StartError) {
   case handle.new(val) {
@@ -13,6 +13,6 @@ pub fn scope(val: v, body: fn(Var(v)) -> Nil) -> Result(Nil, StartError) {
   }
 }
 
-pub fn get(var: Var(v), timeout: Int) -> Result(v, HDLError) {
-  handle.get(var, timeout)
+pub fn get(var: Var(v)) -> Result(v, Death) {
+  handle.get(var)
 }
