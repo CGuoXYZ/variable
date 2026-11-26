@@ -9,7 +9,7 @@ licences = ["Apache-2.0"]
 [repository]
 type = "github"
 user = "CGuoXYZ"
-repo = "variable--gleam-"
+repo = "variable"
 
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
