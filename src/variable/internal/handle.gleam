@@ -1,9 +1,8 @@
-import exception
 import gleam/erlang/process.{type Pid, type Subject}
 import gleam/otp/actor.{type Next, type StartError, Started}
 import gleam/result
 
-import variable/internal/subscribe.{type Subscribes}
+import variable/internal/subscribe.{type Subscribe, type Subscribes}
 
 /// 外部携带的句柄
 pub opaque type Var(v) {
@@ -33,72 +32,65 @@ type Message(v) {
   UnsubscribeAll(subject: Subject(v))
 }
 
-/// 死亡
-pub type Death {
-  Death
-}
-
 /// 使用指定初始值创建新的值进程
 pub fn new(val: v) -> Result(Var(v), StartError) {
-  Val(v: val, subscribes: subscribe.new())
-  |> actor.new()
-  |> actor.on_message(handle)
-  |> actor.start()
-  |> result.try(fn(started) {
-    let Started(pid:, data: subject) = started
-    Var(pid:, subject:) |> Ok()
-  })
+  let started =
+    Val(v: val, subscribes: subscribe.new())
+    |> actor.new()
+    |> actor.on_message(handle)
+    |> actor.start()
+
+  use started <- result.try(started)
+  let Started(pid:, data: subject) = started
+  Var(pid:, subject:) |> Ok()
 }
 
 /// 关闭值进程
 pub fn closure(var: Var(v)) -> Nil {
-  var.subject |> process.send(Closure)
+  process.send(var.subject, Closure)
 }
 
 /// 获取值
-pub fn get(var: Var(v)) -> Result(v, Death) {
-  receive(var, Get)
+pub fn get(var: Var(v)) -> v {
+  Get(subject: _)
+  |> process.call_forever(var.subject, _)
 }
 
 /// 设置值并返回新值
-pub fn set(var: Var(v), new: v) -> Result(v, Death) {
-  receive(var, Set(subject: _, new:))
+pub fn set(var: Var(v), new: v) -> v {
+  Set(subject: _, new:)
+  |> process.call_forever(var.subject, _)
 }
 
 /// 更新值并返回新值
-pub fn update(var: Var(v), update: fn(v) -> v) -> Result(v, Death) {
-  receive(var, Update(subject: _, update:))
+pub fn update(var: Var(v), update: fn(v) -> v) -> v {
+  Update(subject: _, update:)
+  |> process.call_forever(var.subject, _)
 }
 
 /// 订阅函数
-pub fn subscribe(
-  var: Var(v),
-  name: String,
-  body: fn(v, v) -> Nil,
-) -> Result(Nil, Death) {
-  receive(var, Subscribe(subject: _, name:, body:))
-  |> result.map(fn(_) { Nil })
+pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
+  Subscribe(subject: _, name:, body:)
+  |> process.call_forever(var.subject, _)
+  Nil
 }
 
 /// 取消订阅
-pub fn unsubscribe(var: Var(v), name: String) -> Result(Nil, Death) {
-  receive(var, Unsubscribe(subject: _, name:))
-  |> result.map(fn(_) { Nil })
+pub fn unsubscribe(var: Var(v), name: String) -> Nil {
+  Unsubscribe(subject: _, name:)
+  |> process.call_forever(var.subject, _)
+  Nil
 }
 
-/// 向进程获取响应
-fn receive(var: Var(v), msg: fn(Subject(v)) -> Message(v)) -> Result(v, Death) {
-  let subject = process.new_subject()
-  let monitor = process.monitor(var.pid)
-  let selector =
-    process.new_selector()
-    |> process.select_map(subject, Ok)
-    |> process.select_specific_monitor(monitor, fn(_) { Error(Death) })
+pub fn unsubscribe_all(var: Var(v)) -> Nil {
+  UnsubscribeAll(subject: _)
+  |> process.call_forever(var.subject, _)
+  Nil
+}
 
-  process.send(var.subject, msg(subject))
-
-  use <- exception.defer(fn() { process.demonitor_process(monitor) })
-  process.selector_receive_forever(selector)
+/// 进程是否存活
+pub fn is_alive(var: Var(v)) -> Bool {
+  process.is_alive(var.pid)
 }
 
 fn handle(val: Val(v), msg: Message(v)) -> Next(Val(v), Message(v)) {
@@ -114,6 +106,7 @@ fn handle(val: Val(v), msg: Message(v)) -> Next(Val(v), Message(v)) {
 }
 
 fn get_msg(val: Val(v), subject: Subject(v)) -> Next(Val(v), Message(v)) {
+  // 返回值
   process.send(subject, val.v)
   actor.continue(val)
 }
@@ -123,9 +116,13 @@ fn set_msg(
   subject: Subject(v),
   new: v,
 ) -> Next(Val(v), Message(v)) {
+  // 返回新值
   process.send(subject, new)
+  // 通知订阅
   subscribe.notify(val.subscribes, val.v, new)
-  actor.continue(Val(..val, v: new))
+  // 设置新值
+  Val(..val, v: new)
+  |> actor.continue()
 }
 
 fn update_msg(
@@ -133,10 +130,15 @@ fn update_msg(
   subject: Subject(v),
   update: fn(v) -> v,
 ) -> Next(Val(v), Message(v)) {
+  // 获取新值
   let new = update(val.v)
+  // 返回新值
   process.send(subject, new)
+  // 通知订阅
   subscribe.notify(val.subscribes, val.v, new)
-  actor.continue(Val(..val, v: new))
+  // 设置新值
+  Val(..val, v: new)
+  |> actor.continue()
 }
 
 fn subscribe_msg(
@@ -145,10 +147,11 @@ fn subscribe_msg(
   name: String,
   body: fn(v, v) -> Nil,
 ) -> Next(Val(v), Message(v)) {
+  // 返回
   process.send(subject, val.v)
-  actor.continue(
-    Val(..val, subscribes: subscribe.add(val.subscribes, name, body)),
-  )
+  // 添加订阅
+  Val(..val, subscribes: subscribe.add(val.subscribes, name, body))
+  |> actor.continue()
 }
 
 fn unsubscribe_msg(
@@ -156,14 +159,20 @@ fn unsubscribe_msg(
   subject: Subject(v),
   name: String,
 ) -> Next(Val(v), Message(v)) {
+  // 返回
   process.send(subject, val.v)
-  actor.continue(Val(..val, subscribes: subscribe.delete(val.subscribes, name)))
+  // 取消订阅
+  Val(..val, subscribes: subscribe.delete(val.subscribes, name))
+  |> actor.continue()
 }
 
 fn unsubscribe_all_msg(
   val: Val(v),
   subject: Subject(v),
 ) -> Next(Val(v), Message(v)) {
+  // 返回
   process.send(subject, val.v)
-  actor.continue(Val(..val, subscribes: subscribe.delete_all(val.subscribes)))
+  // 取消所有订阅
+  Val(..val, subscribes: subscribe.delete_all(val.subscribes))
+  |> actor.continue()
 }
