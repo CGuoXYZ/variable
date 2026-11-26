@@ -8,24 +8,29 @@ pub opaque type Subscribes(v) {
 
 /// 订阅循环接收的消息
 type SubMessage(v) {
-  /// 关闭
+  /// 关闭订阅进程
   Closure
-  /// 通知
+  /// 通知订阅进程
   Notify(old: v, new: v)
 }
 
-/// 新的订阅者字典
+/// 创建新的订阅者字典
 pub fn new() -> Subscribes(v) {
   Subscribes(dict.new())
 }
 
 /// 订阅循环
-fn sub_loop(msg: Subject(SubMessage(v)), body: fn(v, v) -> Nil) -> Nil {
-  case process.receive_forever(msg) {
+fn sub_loop(message: Subject(SubMessage(v)), body: fn(v, v) -> Nil) -> Nil {
+  // 等待消息
+  case process.receive_forever(message) {
+    // 关闭
     Closure -> Nil
+    // 接收消息
     Notify(old:, new:) -> {
+      // 执行函数
       body(old, new)
-      sub_loop(msg, body)
+      // 订阅循环
+      sub_loop(message, body)
     }
   }
 }
@@ -42,11 +47,12 @@ pub fn add(
     True -> delete(subscribes, name)
   }
 
-  // 准备接收订阅循环的接收器
+  // 准备接收订阅进程的接收器
   let ready = process.new_subject()
 
+  // 订阅进程
   process.spawn(fn() {
-    // 订阅循环的接收器
+    // 订阅进程的接收器
     let sub_msg = process.new_subject()
     // 向外部发送接收器
     process.send(ready, sub_msg)

@@ -17,12 +17,19 @@ type Val(v) {
 
 /// 进程的消息
 type Message(v) {
+  /// 关闭进程
   Closure
+  /// 获取值
   Get(subject: Subject(v))
+  /// 设置值
   Set(subject: Subject(v), new: v)
+  /// 更新值
   Update(subject: Subject(v), update: fn(v) -> v)
+  /// 订阅
   Subscribe(subject: Subject(v), name: String, body: fn(v, v) -> Nil)
+  /// 取消订阅
   Unsubscribe(subject: Subject(v), name: String)
+  /// 取消全部订阅
   UnsubscribeAll(subject: Subject(v))
 }
 
