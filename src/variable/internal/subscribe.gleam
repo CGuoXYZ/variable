@@ -1,23 +1,24 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process
 
-/// 订阅者字典
+/// 订阅函数字典
 pub opaque type Subscribes(v) {
-  Subscribes(subs: Dict(String, fn(v, v) -> Nil))
+  Subscribes(subs: Dict(String, Subscribe(v)))
 }
 
 /// 订阅函数
 pub type Subscribe(v) =
   fn(v, v) -> Nil
 
-/// 创建新的订阅者字典
+/// 创建订阅者字典
 pub fn new() -> Subscribes(v) {
   Subscribes(dict.new())
 }
 
 /// 添加订阅
 /// 
-/// 重名的订阅会覆盖
+/// # Notice
+/// 会覆盖重名订阅
 pub fn add(
   subscribes: Subscribes(v),
   name: String,

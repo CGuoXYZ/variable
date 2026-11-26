@@ -49,6 +49,9 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 
 /// 订阅函数
 /// 
+/// # Notice
+/// 会覆盖重名订阅
+/// 
 /// # Panic
 /// 进程关闭
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {

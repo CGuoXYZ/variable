@@ -4,14 +4,14 @@ import gleam/result
 
 import variable/internal/subscribe.{type Subscribe, type Subscribes}
 
-/// 外部携带的句柄
+/// 进程句柄
 pub opaque type Var(v) {
   Var(pid: Pid, subject: Subject(Message(v)))
 }
 
-/// 进程的状态
+/// 进程状态
 type Val(v) {
-  Val(v: v, subscribes: Subscribes(v))
+  Val(v: v, subs: Subscribes(v))
 }
 
 /// 进程的消息
@@ -32,10 +32,10 @@ type Message(v) {
   UnsubscribeAll(subject: Subject(v))
 }
 
-/// 使用指定初始值创建新的值进程
+/// 使用初始值创建新的值进程
 pub fn new(val: v) -> Result(Var(v), StartError) {
   let started =
-    Val(v: val, subscribes: subscribe.new())
+    Val(v: val, subs: subscribe.new())
     |> actor.new()
     |> actor.on_message(handle)
     |> actor.start()
@@ -51,24 +51,39 @@ pub fn closure(var: Var(v)) -> Nil {
 }
 
 /// 获取值
+/// 
+/// # Panic
+/// 进程关闭
 pub fn get(var: Var(v)) -> v {
   Get(subject: _)
   |> process.call_forever(var.subject, _)
 }
 
 /// 设置值并返回新值
+/// 
+/// # Panic
+/// 进程关闭
 pub fn set(var: Var(v), new: v) -> v {
   Set(subject: _, new:)
   |> process.call_forever(var.subject, _)
 }
 
 /// 更新值并返回新值
+/// 
+/// # Panic
+/// 进程关闭
 pub fn update(var: Var(v), update: fn(v) -> v) -> v {
   Update(subject: _, update:)
   |> process.call_forever(var.subject, _)
 }
 
 /// 订阅函数
+/// 
+/// # Notice
+/// 会覆盖重名订阅
+/// 
+/// # Panic
+/// 进程关闭
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
   Subscribe(subject: _, name:, body:)
   |> process.call_forever(var.subject, _)
@@ -76,12 +91,19 @@ pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
 }
 
 /// 取消订阅
+/// 
+/// # Panic
+/// 进程关闭
 pub fn unsubscribe(var: Var(v), name: String) -> Nil {
   Unsubscribe(subject: _, name:)
   |> process.call_forever(var.subject, _)
   Nil
 }
 
+/// 取消全部订阅
+/// 
+/// # Panic
+/// 进程关闭
 pub fn unsubscribe_all(var: Var(v)) -> Nil {
   UnsubscribeAll(subject: _)
   |> process.call_forever(var.subject, _)
@@ -93,8 +115,8 @@ pub fn is_alive(var: Var(v)) -> Bool {
   process.is_alive(var.pid)
 }
 
-fn handle(val: Val(v), msg: Message(v)) -> Next(Val(v), Message(v)) {
-  case msg {
+fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
+  case message {
     Closure -> actor.stop()
     Get(subject:) -> get_msg(val, subject)
     Set(subject:, new:) -> set_msg(val, subject, new)
@@ -119,7 +141,7 @@ fn set_msg(
   // 返回新值
   process.send(subject, new)
   // 通知订阅
-  subscribe.notify(val.subscribes, val.v, new)
+  subscribe.notify(val.subs, val.v, new)
   // 设置新值
   Val(..val, v: new)
   |> actor.continue()
@@ -135,7 +157,7 @@ fn update_msg(
   // 返回新值
   process.send(subject, new)
   // 通知订阅
-  subscribe.notify(val.subscribes, val.v, new)
+  subscribe.notify(val.subs, val.v, new)
   // 设置新值
   Val(..val, v: new)
   |> actor.continue()
@@ -150,7 +172,7 @@ fn subscribe_msg(
   // 返回
   process.send(subject, val.v)
   // 添加订阅
-  Val(..val, subscribes: subscribe.add(val.subscribes, name, body))
+  Val(..val, subs: subscribe.add(val.subs, name, body))
   |> actor.continue()
 }
 
@@ -162,7 +184,7 @@ fn unsubscribe_msg(
   // 返回
   process.send(subject, val.v)
   // 取消订阅
-  Val(..val, subscribes: subscribe.delete(val.subscribes, name))
+  Val(..val, subs: subscribe.delete(val.subs, name))
   |> actor.continue()
 }
 
@@ -173,6 +195,6 @@ fn unsubscribe_all_msg(
   // 返回
   process.send(subject, val.v)
   // 取消所有订阅
-  Val(..val, subscribes: subscribe.delete_all(val.subscribes))
+  Val(..val, subs: subscribe.delete_all(val.subs))
   |> actor.continue()
 }
