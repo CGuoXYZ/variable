@@ -21,7 +21,7 @@ pub fn scope(
   }
 }
 
-/// 获取当前值
+/// 获取值
 /// 
 /// # Panic
 /// 进程关闭
@@ -29,7 +29,7 @@ pub fn get(var: Var(v)) -> v {
   handle.get(var)
 }
 
-/// 设置新值并返回
+/// 设置值并通知订阅，最后返回新值
 /// 
 /// # Panic
 /// 进程关闭
@@ -37,7 +37,7 @@ pub fn set(var: Var(v), new: v) -> v {
   handle.set(var, new)
 }
 
-/// 使用函数设置新值并返回
+/// 更新值并通知订阅，最后返回新值
 /// 
 /// # Panic
 /// 进程关闭

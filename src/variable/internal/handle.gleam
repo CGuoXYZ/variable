@@ -59,7 +59,7 @@ pub fn get(var: Var(v)) -> v {
   |> process.call_forever(var.subject, _)
 }
 
-/// 设置值并返回新值
+/// 设置值并通知订阅，最后返回新值
 /// 
 /// # Panic
 /// 进程关闭
@@ -68,7 +68,7 @@ pub fn set(var: Var(v), new: v) -> v {
   |> process.call_forever(var.subject, _)
 }
 
-/// 更新值并返回新值
+/// 更新值并通知订阅，最后返回新值
 /// 
 /// # Panic
 /// 进程关闭
