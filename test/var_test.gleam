@@ -1,8 +1,7 @@
 import exception
 import gleam/erlang/process
-import gleam/int
 import gleam/list
-import gleam/order.{Eq}
+import gleam/string
 import gleeunit
 
 import var.{type Var}
@@ -64,21 +63,30 @@ fn assert_no_message(subject: process.Subject(a)) -> Nil {
   }
 }
 
-fn compare_pair(a: #(Int, Int), b: #(Int, Int)) {
-  case int.compare(a.0, b.0) {
-    Eq -> int.compare(a.1, b.1)
-    other -> other
-  }
-}
-
-/// 通知是并发的，不保证到达顺序；按 old/new 排序后比较内容
-fn sorted_pairs(subject: process.Subject(#(Int, Int)), n: Int) {
-  take(subject, n) |> list.sort(compare_pair)
-}
-
 fn assert_panics(run: fn() -> a) -> Nil {
   let assert Error(_) = exception.rescue(run)
   Nil
+}
+
+@external(erlang, "erlang", "processes")
+fn processes() -> List(process.Pid)
+
+fn process_count() -> Int {
+  list.length(processes())
+}
+
+fn await_process_count_at_most(max: Int, attempts: Int) -> Bool {
+  case process_count() <= max {
+    True -> True
+    False ->
+      case attempts <= 0 {
+        True -> False
+        False -> {
+          process.sleep(10)
+          await_process_count_at_most(max, attempts - 1)
+        }
+      }
+  }
 }
 
 // ─────────────────────────── 读取 / 设置 ───────────────────────────
@@ -264,6 +272,31 @@ pub fn scope_closes_on_callback_exit_test() {
   assert await_dead(escaped, 100)
 }
 
+/// 当前实现：update 回调 panic 会杀死值进程
+///
+/// 这个测试会打印 crash report，属于预期行为。
+pub fn update_panic_kills_value_process_test() {
+  let box = process.new_subject()
+  let completed = process.new_subject()
+
+  let _ =
+    process.spawn_unlinked(fn() {
+      let assert Ok(Nil) =
+        var.scope(0, fn(var) {
+          process.send(box, var)
+          let _ = var.update(var, fn(_) { panic as "update boom" })
+          process.send(completed, Nil)
+          Nil
+        })
+      Nil
+    })
+
+  let escaped = process.receive_forever(box)
+  assert await_dead(escaped, 100)
+  // update 没有正常返回，不应该收到 completed
+  assert process.receive(completed, 100) == Error(Nil)
+}
+
 // ─────────────────────────── 死亡后的访问 ───────────────────────────
 
 pub fn get_on_dead_var_panics_test() {
@@ -282,6 +315,18 @@ pub fn update_on_dead_var_panics_test() {
   let escaped = escaped_var()
   let assert True = await_dead(escaped, 100)
   assert_panics(fn() { var.update(escaped, fn(n) { n + 1 }) })
+}
+
+pub fn subscribe_numbers_on_dead_var_panics_test() {
+  let escaped = escaped_var()
+  let assert True = await_dead(escaped, 100)
+  assert_panics(fn() { var.subscribe_numbers(escaped) })
+}
+
+pub fn subscribe_names_on_dead_var_panics_test() {
+  let escaped = escaped_var()
+  let assert True = await_dead(escaped, 100)
+  assert_panics(fn() { var.subscribe_names(escaped) })
 }
 
 pub fn subscribe_on_dead_var_panics_test() {
@@ -328,7 +373,7 @@ pub fn update_notifies_old_and_new_test() {
   })
 }
 
-/// 多次变化时每一对 old/new 都正确（不保证到达顺序）
+/// 每个订阅者有自己的 mailbox，通知按 set 顺序到达
 pub fn multiple_notifications_pairs_test() {
   with(0, fn(var) {
     let seen = process.new_subject()
@@ -339,7 +384,7 @@ pub fn multiple_notifications_pairs_test() {
     assert var.set(var, 2) == 2
     assert var.set(var, 3) == 3
 
-    assert sorted_pairs(seen, 3) == [#(0, 1), #(1, 2), #(2, 3)]
+    assert take(seen, 3) == [#(0, 1), #(1, 2), #(2, 3)]
   })
 }
 
@@ -353,7 +398,7 @@ pub fn set_same_value_still_notifies_test() {
     assert var.set(var, 5) == 5
     assert var.set(var, 5) == 5
 
-    assert sorted_pairs(seen, 2) == [#(0, 5), #(5, 5)]
+    assert take(seen, 2) == [#(0, 5), #(5, 5)]
   })
 }
 
@@ -471,6 +516,116 @@ pub fn unsubscribe_all_empty_test() {
     var.unsubscribe_all(var)
     var.unsubscribe_all(var)
     assert var.is_alive(var) == True
+  })
+}
+
+/// 订阅数量和名称列表随订阅/退订变化
+pub fn subscribe_numbers_and_names_test() {
+  with(0, fn(var) {
+    assert var.subscribe_numbers(var) == 0
+    assert var.subscribe_names(var) == []
+
+    let _ = var.subscribe(var, "b", fn(_, _) { Nil })
+    let _ = var.subscribe(var, "a", fn(_, _) { Nil })
+
+    assert var.subscribe_numbers(var) == 2
+    assert list.sort(var.subscribe_names(var), string.compare) == ["a", "b"]
+
+    var.unsubscribe(var, "a")
+
+    assert var.subscribe_numbers(var) == 1
+    assert var.subscribe_names(var) == ["b"]
+
+    var.unsubscribe_all(var)
+
+    assert var.subscribe_numbers(var) == 0
+    assert var.subscribe_names(var) == []
+  })
+}
+
+/// 同名订阅会覆盖，数量和名称不增加
+pub fn subscribe_names_overwrite_test() {
+  with(0, fn(var) {
+    let _ = var.subscribe(var, "a", fn(_, _) { Nil })
+    let _ = var.subscribe(var, "a", fn(_, _) { Nil })
+
+    assert var.subscribe_numbers(var) == 1
+    assert var.subscribe_names(var) == ["a"]
+  })
+}
+
+/// scope 关闭时会取消所有订阅，订阅进程随之退出
+pub fn scope_closure_stops_subscriber_processes_test() {
+  let base = process_count()
+
+  let assert Ok(Nil) =
+    var.scope(0, fn(var) {
+      let _ = var.subscribe(var, "a", fn(_, _) { Nil })
+      let _ = var.subscribe(var, "b", fn(_, _) { Nil })
+      Nil
+    })
+
+  // closure 是异步的，等待订阅进程收到 Closure 后退出
+  assert await_process_count_at_most(base + 5, 100)
+}
+
+/// 慢回调不会阻塞值进程的 set/get
+pub fn slow_callback_does_not_block_set_test() {
+  with(0, fn(var) {
+    let started = process.new_subject()
+    let done = process.new_subject()
+
+    let _ =
+      var.subscribe(var, "slow", fn(_, _) {
+        process.send(started, Nil)
+        process.sleep(100)
+        process.send(done, Nil)
+      })
+
+    assert var.set(var, 1) == 1
+    let assert Ok(Nil) = process.receive(started, timeout)
+
+    // 回调还在 sleep，值进程仍然可以处理其他操作
+    assert var.set(var, 2) == 2
+    assert var.get(var) == 2
+
+    let assert Ok(Nil) = process.receive(done, timeout)
+    Nil
+  })
+}
+
+/// 慢回调期间通知会排队，但每个订阅者内部仍然保序
+pub fn slow_callback_keeps_notifications_ordered_test() {
+  with(0, fn(var) {
+    let seen = process.new_subject()
+
+    let _ =
+      var.subscribe(var, "slow", fn(old, new) {
+        process.sleep(50)
+        process.send(seen, #(old, new))
+      })
+
+    assert var.set(var, 1) == 1
+    assert var.set(var, 2) == 2
+    assert var.set(var, 3) == 3
+
+    assert take(seen, 3) == [#(0, 1), #(1, 2), #(2, 3)]
+  })
+}
+
+/// 慢订阅者不会阻塞其他订阅者
+pub fn slow_subscriber_does_not_delay_others_test() {
+  with(0, fn(var) {
+    let fast = process.new_subject()
+
+    let _ = var.subscribe(var, "slow", fn(_, _) { process.sleep(300) })
+    let _ =
+      var.subscribe(var, "fast", fn(old, new) {
+        process.send(fast, #(old, new))
+      })
+
+    assert var.set(var, 1) == 1
+    assert process.receive(fast, 100) == Ok(#(0, 1))
   })
 }
 

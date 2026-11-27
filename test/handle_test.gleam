@@ -1,8 +1,7 @@
 import exception
 import gleam/erlang/process
-import gleam/int
 import gleam/list
-import gleam/order.{Eq}
+import gleam/string
 import gleeunit
 
 import var.{type Var}
@@ -54,17 +53,6 @@ fn assert_no_message(subject: process.Subject(a)) -> Nil {
     Ok(_) -> panic as "不应该再收到通知"
     Error(_) -> Nil
   }
-}
-
-fn compare_pair(a: #(Int, Int), b: #(Int, Int)) {
-  case int.compare(a.0, b.0) {
-    Eq -> int.compare(a.1, b.1)
-    other -> other
-  }
-}
-
-fn sorted_pairs(subject: process.Subject(#(Int, Int)), n: Int) {
-  take(subject, n) |> list.sort(compare_pair)
 }
 
 fn assert_panics(run: fn() -> a) -> Nil {
@@ -182,6 +170,20 @@ pub fn subscribe_after_closure_panics_test() {
   assert_panics(fn() { handle.subscribe(var, "a", fn(_, _) { Nil }) })
 }
 
+pub fn subscribe_numbers_after_closure_panics_test() {
+  let assert Ok(var) = handle.new(0)
+  handle.closure(var)
+  assert await_dead(var, 100)
+  assert_panics(fn() { handle.subscribe_numbers(var) })
+}
+
+pub fn subscribe_names_after_closure_panics_test() {
+  let assert Ok(var) = handle.new(0)
+  handle.closure(var)
+  assert await_dead(var, 100)
+  assert_panics(fn() { handle.subscribe_names(var) })
+}
+
 // ─────────────────────────── 订阅 ───────────────────────────
 
 pub fn subscribe_notifies_test() {
@@ -195,6 +197,39 @@ pub fn subscribe_notifies_test() {
     assert handle.set(var, 1) == 1
     assert take(seen, 1) == [#(0, 1)]
   })
+}
+
+/// 当前实现：订阅回调 panic 会杀死值进程
+///
+/// 这个测试会打印 crash report，属于预期行为。
+pub fn subscriber_panic_kills_value_process_test() {
+  let box = process.new_subject()
+  let ready = process.new_subject()
+  let release = process.new_subject()
+
+  let _ =
+    process.spawn_unlinked(fn() {
+      let assert Ok(var) = handle.new(0)
+      let _ =
+        handle.subscribe(var, "boom", fn(_, _) { panic as "subscriber boom" })
+      process.send(box, var)
+      process.send(ready, Nil)
+      let _ = process.receive(release, 1000)
+      handle.closure(var)
+      Nil
+    })
+
+  let var = process.receive_forever(box)
+  let assert Ok(Nil) = process.receive(ready, timeout)
+
+  let _ =
+    process.spawn_unlinked(fn() {
+      let _ = handle.set(var, 1)
+      Nil
+    })
+
+  assert await_dead(var, 100)
+  process.send(release, Nil)
 }
 
 pub fn update_notifies_test() {
@@ -222,7 +257,7 @@ pub fn multiple_notifications_pairs_test() {
     assert handle.set(var, 2) == 2
     assert handle.set(var, 3) == 3
 
-    assert sorted_pairs(seen, 3) == [#(0, 1), #(1, 2), #(2, 3)]
+    assert take(seen, 3) == [#(0, 1), #(1, 2), #(2, 3)]
   })
 }
 
@@ -281,6 +316,29 @@ pub fn unsubscribe_missing_is_safe_test() {
     handle.unsubscribe(var, "missing")
     handle.unsubscribe_all(var)
     assert handle.is_alive(var) == True
+  })
+}
+
+pub fn subscribe_numbers_and_names_test() {
+  with_var(0, fn(var) {
+    assert handle.subscribe_numbers(var) == 0
+    assert handle.subscribe_names(var) == []
+
+    let _ = handle.subscribe(var, "b", fn(_, _) { Nil })
+    let _ = handle.subscribe(var, "a", fn(_, _) { Nil })
+
+    assert handle.subscribe_numbers(var) == 2
+    assert list.sort(handle.subscribe_names(var), string.compare) == ["a", "b"]
+
+    handle.unsubscribe(var, "a")
+
+    assert handle.subscribe_numbers(var) == 1
+    assert handle.subscribe_names(var) == ["b"]
+
+    handle.unsubscribe_all(var)
+
+    assert handle.subscribe_numbers(var) == 0
+    assert handle.subscribe_names(var) == []
   })
 }
 

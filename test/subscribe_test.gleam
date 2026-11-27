@@ -1,7 +1,6 @@
 import gleam/erlang/process
-import gleam/int
 import gleam/list
-import gleam/order.{Eq}
+import gleam/string
 import gleeunit
 
 import variable/internal/subscribe
@@ -31,15 +30,32 @@ fn assert_no_message(subject: process.Subject(a)) -> Nil {
   }
 }
 
-fn compare_pair(a: #(Int, Int), b: #(Int, Int)) {
-  case int.compare(a.0, b.0) {
-    Eq -> int.compare(a.1, b.1)
-    other -> other
-  }
+/// 关闭订阅进程，避免测试之间泄漏
+fn stop(subscribes: subscribe.Subscribes(a)) -> Nil {
+  let _ = subscribe.delete_all(subscribes)
+  process.sleep(10)
+  Nil
 }
 
-fn sorted_pairs(subject: process.Subject(#(Int, Int)), n: Int) {
-  take(subject, n) |> list.sort(compare_pair)
+@external(erlang, "erlang", "processes")
+fn processes() -> List(process.Pid)
+
+fn process_count() -> Int {
+  list.length(processes())
+}
+
+fn await_process_count_at_most(max: Int, attempts: Int) -> Bool {
+  case process_count() <= max {
+    True -> True
+    False ->
+      case attempts <= 0 {
+        True -> False
+        False -> {
+          process.sleep(10)
+          await_process_count_at_most(max, attempts - 1)
+        }
+      }
+  }
 }
 
 // ─────────────────────────── 订阅表 ───────────────────────────
@@ -58,6 +74,7 @@ pub fn add_notify_test() {
   subscribe.notify(subscribes, 0, 1)
 
   assert take(seen, 1) == [#(0, 1)]
+  stop(subscribes)
 }
 
 pub fn notify_runs_in_separate_process_test() {
@@ -70,6 +87,7 @@ pub fn notify_runs_in_separate_process_test() {
 
   let assert Ok(pid) = process.receive(seen, timeout)
   assert pid != process.self()
+  stop(subscribes)
 }
 
 pub fn multiple_subscribers_test() {
@@ -84,6 +102,7 @@ pub fn multiple_subscribers_test() {
 
   assert take(a, 1) == [#(0, 1)]
   assert take(b, 1) == [#(0, 1)]
+  stop(subscribes)
 }
 
 pub fn same_name_overwrites_test() {
@@ -102,6 +121,7 @@ pub fn same_name_overwrites_test() {
 
   assert take(new, 1) == [#(0, 1)]
   assert_no_message(old)
+  stop(subscribes)
 }
 
 pub fn notify_multiple_times_test() {
@@ -113,7 +133,95 @@ pub fn notify_multiple_times_test() {
   subscribe.notify(subscribes, 0, 1)
   subscribe.notify(subscribes, 1, 2)
 
-  assert sorted_pairs(seen, 2) == [#(0, 1), #(1, 2)]
+  assert take(seen, 2) == [#(0, 1), #(1, 2)]
+  stop(subscribes)
+}
+
+pub fn numbers_empty_test() {
+  assert subscribe.numbers(subscribe.new()) == 0
+}
+
+pub fn numbers_after_add_test() {
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+
+  assert subscribe.numbers(subscribes) == 1
+  stop(subscribes)
+}
+
+pub fn names_after_add_test() {
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("b", fn(_, _) { Nil })
+    |> subscribe.add("a", fn(_, _) { Nil })
+
+  assert list.sort(subscribe.names(subscribes), string.compare) == ["a", "b"]
+  stop(subscribes)
+}
+
+pub fn numbers_and_names_after_delete_test() {
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+    |> subscribe.add("b", fn(_, _) { Nil })
+    |> subscribe.delete("a")
+
+  assert subscribe.numbers(subscribes) == 1
+  assert subscribe.names(subscribes) == ["b"]
+  stop(subscribes)
+}
+
+pub fn numbers_and_names_after_delete_all_test() {
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+    |> subscribe.add("b", fn(_, _) { Nil })
+    |> subscribe.delete_all()
+
+  assert subscribe.numbers(subscribes) == 0
+  assert subscribe.names(subscribes) == []
+}
+
+/// 同名覆盖时旧订阅进程会被关闭，只剩新进程
+pub fn add_overwrite_stops_old_process_test() {
+  let base = process_count()
+
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+
+  let subscribes = subscribe.add(subscribes, "a", fn(_, _) { Nil })
+
+  assert await_process_count_at_most(base + 1, 100)
+  stop(subscribes)
+}
+
+/// delete 会关闭订阅进程
+pub fn delete_stops_process_test() {
+  let base = process_count()
+
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+
+  let _ = subscribe.delete(subscribes, "a")
+
+  assert await_process_count_at_most(base, 100)
+}
+
+/// delete_all 会关闭所有订阅进程
+pub fn delete_all_stops_processes_test() {
+  let base = process_count()
+
+  let subscribes =
+    subscribe.new()
+    |> subscribe.add("a", fn(_, _) { Nil })
+    |> subscribe.add("b", fn(_, _) { Nil })
+
+  let _ = subscribe.delete_all(subscribes)
+
+  assert await_process_count_at_most(base, 100)
 }
 
 // ─────────────────────────── 取消订阅 ───────────────────────────
