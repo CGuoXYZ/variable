@@ -16,7 +16,7 @@ gleam add variable
 ***
 
 ## Example
-使用`scope`函数创建可变值，回调结束时它会被自动销毁
+使用`scope`函数创建可变值，回调结束时销毁
 
 每个`Var`对应一个进程，读写靠消息传递
 ```gleam
@@ -75,7 +75,7 @@ pub fn main() -> Result(Nil, StartError) {
 
 ***
 
-`scope`在回调结束时会自动终止进程，之后再用它则会`panic`
+`scope`在回调结束时会终止进程，之后再用则会`panic`
 
 可以用`is_alive`函数检查进程是否存活
 ```gleam
