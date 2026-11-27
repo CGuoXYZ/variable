@@ -24,12 +24,16 @@ type Message(v) {
   Set(subject: Subject(v), new: v)
   /// 更新值
   Update(subject: Subject(v), update: fn(v) -> v)
+  /// 订阅数量
+  SubscribeQuantity(subject: Subject(Int))
+  /// 订阅名称列表
+  SubscribeNames(subject: Subject(List(String)))
   /// 订阅
-  Subscribe(subject: Subject(v), name: String, body: fn(v, v) -> Nil)
+  Subscribe(subject: Subject(Nil), name: String, body: fn(v, v) -> Nil)
   /// 取消订阅
-  Unsubscribe(subject: Subject(v), name: String)
+  Unsubscribe(subject: Subject(Nil), name: String)
   /// 取消全部订阅
-  UnsubscribeAll(subject: Subject(v))
+  UnsubscribeAll(subject: Subject(Nil))
 }
 
 /// 使用初始值创建新的值进程
@@ -79,6 +83,24 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
   |> process.call_forever(var.subject, _)
 }
 
+/// 获取订阅数量
+/// 
+/// # Panic
+/// 进程关闭
+pub fn subscribe_numbers(var: Var(v)) -> Int {
+  SubscribeQuantity(subject: _)
+  |> process.call_forever(var.subject, _)
+}
+
+/// 获取订阅名称列表
+/// 
+/// # Panic
+/// 进程关闭
+pub fn subscribe_names(var: Var(v)) -> List(String) {
+  SubscribeNames(subject: _)
+  |> process.call_forever(var.subject, _)
+}
+
 /// 订阅函数
 /// 
 /// # Notice
@@ -93,7 +115,6 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
   Subscribe(subject: _, name:, body:)
   |> process.call_forever(var.subject, _)
-  Nil
 }
 
 /// 取消订阅
@@ -103,7 +124,6 @@ pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
 pub fn unsubscribe(var: Var(v), name: String) -> Nil {
   Unsubscribe(subject: _, name:)
   |> process.call_forever(var.subject, _)
-  Nil
 }
 
 /// 取消全部订阅
@@ -113,7 +133,6 @@ pub fn unsubscribe(var: Var(v), name: String) -> Nil {
 pub fn unsubscribe_all(var: Var(v)) -> Nil {
   UnsubscribeAll(subject: _)
   |> process.call_forever(var.subject, _)
-  Nil
 }
 
 /// 进程是否存活
@@ -127,6 +146,8 @@ fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
     Get(subject:) -> get_msg(val, subject)
     Set(subject:, new:) -> set_msg(val, subject, new)
     Update(subject:, update:) -> update_msg(val, subject, update)
+    SubscribeQuantity(subject:) -> subscribe_numbers_msg(val, subject)
+    SubscribeNames(subject:) -> subscribe_names_msg(val, subject)
     Subscribe(subject:, name:, body:) -> subscribe_msg(val, subject, name, body)
     Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
     UnsubscribeAll(subject:) -> unsubscribe_all_msg(val, subject)
@@ -175,14 +196,32 @@ fn update_msg(
   |> actor.continue()
 }
 
+fn subscribe_numbers_msg(
+  val: Val(v),
+  subject: Subject(Int),
+) -> Next(Val(v), Message(v)) {
+  // 返回订阅数量
+  process.send(subject, subscribe.numbers(val.subs))
+  actor.continue(val)
+}
+
+fn subscribe_names_msg(
+  val: Val(v),
+  subject: Subject(List(String)),
+) -> Next(Val(v), Message(v)) {
+  // 返回订阅名称列表
+  process.send(subject, subscribe.names(val.subs))
+  actor.continue(val)
+}
+
 fn subscribe_msg(
   val: Val(v),
-  subject: Subject(v),
+  subject: Subject(Nil),
   name: String,
   body: fn(v, v) -> Nil,
 ) -> Next(Val(v), Message(v)) {
   // 返回
-  process.send(subject, val.v)
+  process.send(subject, Nil)
   // 添加订阅
   Val(..val, subs: subscribe.add(val.subs, name, body))
   |> actor.continue()
@@ -190,11 +229,11 @@ fn subscribe_msg(
 
 fn unsubscribe_msg(
   val: Val(v),
-  subject: Subject(v),
+  subject: Subject(Nil),
   name: String,
 ) -> Next(Val(v), Message(v)) {
   // 返回
-  process.send(subject, val.v)
+  process.send(subject, Nil)
   // 取消订阅
   Val(..val, subs: subscribe.delete(val.subs, name))
   |> actor.continue()
@@ -202,10 +241,10 @@ fn unsubscribe_msg(
 
 fn unsubscribe_all_msg(
   val: Val(v),
-  subject: Subject(v),
+  subject: Subject(Nil),
 ) -> Next(Val(v), Message(v)) {
   // 返回
-  process.send(subject, val.v)
+  process.send(subject, Nil)
   // 取消所有订阅
   Val(..val, subs: subscribe.delete_all(val.subs))
   |> actor.continue()

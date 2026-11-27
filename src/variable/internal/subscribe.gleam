@@ -1,5 +1,15 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
+import gleam/otp/actor
+
+/// 订阅句柄
+pub opaque type Subscribes(v) {
+  Subscribes(subs: Dict(String, Subject(Message(v))))
+}
+
+/// 订阅函数
+pub type Subscribe(v) =
+  fn(v, v) -> Nil
 
 /// 订阅的消息
 type Message(v) {
@@ -9,18 +19,20 @@ type Message(v) {
   Notify(old: v, new: v)
 }
 
-/// 订阅函数字典
-pub opaque type Subscribes(v) {
-  Subscribes(subs: Dict(String, Subject(Message(v))))
-}
-
-/// 订阅函数
-pub type Subscribe(v) =
-  fn(v, v) -> Nil
-
 /// 创建订阅者字典
 pub fn new() -> Subscribes(v) {
   Subscribes(dict.new())
+}
+
+/// 订阅数量
+pub fn numbers(subscribes: Subscribes(v)) -> Int {
+  dict.size(subscribes.subs)
+}
+
+/// 订阅的名称列表
+pub fn names(subscribes: Subscribes(v)) -> List(String) {
+  use acc, name, _ <- dict.fold(subscribes.subs, [])
+  [name, ..acc]
 }
 
 /// 添加订阅

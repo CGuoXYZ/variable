@@ -51,6 +51,22 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
   handle.update(var, update)
 }
 
+/// 获取订阅数量
+/// 
+/// # Panic
+/// 进程关闭
+pub fn subscribe_numbers(var: Var(v)) -> Int {
+  handle.subscribe_numbers(var)
+}
+
+/// 获取订阅名称列表
+/// 
+/// # Panic
+/// 进程关闭
+pub fn subscribe_names(var: Var(v)) -> List(String) {
+  handle.subscribe_names(var)
+}
+
 /// 订阅函数
 /// 
 /// # Notice
