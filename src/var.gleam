@@ -71,8 +71,8 @@ pub fn subscribe_names(var: Var(v)) -> List(String) {
 /// 
 /// # Panic
 /// 进程关闭
-pub fn has_subscribe(var: Var(v), name: String) -> Bool {
-  handle.has_subscribe(var, name)
+pub fn is_subscribe(var: Var(v), name: String) -> Bool {
+  handle.is_subscribe(var, name)
 }
 
 /// 订阅函数

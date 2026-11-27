@@ -29,7 +29,7 @@ type Message(v) {
   /// 订阅名称列表
   SubscribeNames(subject: Subject(List(String)))
   /// 订阅是否存在
-  HasSubscribe(subject: Subject(Bool), name: String)
+  IsSubscribe(subject: Subject(Bool), name: String)
   /// 订阅
   Subscribe(subject: Subject(Nil), name: String, body: fn(v, v) -> Nil)
   /// 取消订阅
@@ -107,8 +107,8 @@ pub fn subscribe_names(var: Var(v)) -> List(String) {
 /// 
 /// # Panic
 /// 进程关闭
-pub fn has_subscribe(var: Var(v), name: String) -> Bool {
-  HasSubscribe(subject: _, name:)
+pub fn is_subscribe(var: Var(v), name: String) -> Bool {
+  IsSubscribe(subject: _, name:)
   |> process.call_forever(var.subject, _)
 }
 
@@ -157,7 +157,7 @@ fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
     Update(subject:, update:) -> update_msg(val, subject, update)
     SubscribeCount(subject:) -> subscribe_count_msg(val, subject)
     SubscribeNames(subject:) -> subscribe_names_msg(val, subject)
-    HasSubscribe(subject:, name:) -> has_subscribe_msg(val, subject, name)
+    IsSubscribe(subject:, name:) -> is_subscribe_msg(val, subject, name)
     Subscribe(subject:, name:, body:) -> subscribe_msg(val, subject, name, body)
     Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
     UnsubscribeAll(subject:) -> unsubscribe_all_msg(val, subject)
@@ -224,13 +224,13 @@ fn subscribe_names_msg(
   actor.continue(val)
 }
 
-fn has_subscribe_msg(
+fn is_subscribe_msg(
   val: Val(v),
   subject: Subject(Bool),
   name: String,
 ) -> Next(Val(v), Message(v)) {
   // 返回结果
-  process.send(subject, subscribe.is_exists(val.subs, name))
+  process.send(subject, subscribe.has(val.subs, name))
   actor.continue(val)
 }
 
