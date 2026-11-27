@@ -23,12 +23,12 @@ pub fn new() -> Subscribes(v) {
   Subscribes(dict.new())
 }
 
-/// 订阅数量
+/// 获取订阅数量
 pub fn numbers(subscribes: Subscribes(v)) -> Int {
   dict.size(subscribes.subs)
 }
 
-/// 订阅的名称列表
+/// 获取订阅名称列表
 pub fn names(subscribes: Subscribes(v)) -> List(String) {
   use acc, name, _ <- dict.fold(subscribes.subs, [])
   [name, ..acc]
