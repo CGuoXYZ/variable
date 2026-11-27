@@ -45,7 +45,7 @@ pub fn set(var: Var(v), new: v) -> v {
 /// # Panic
 /// 进程关闭
 /// 
-/// 函数异常
+/// 回调函数异常
 pub fn update(var: Var(v), update: fn(v) -> v) -> v {
   handle.update(var, update)
 }
@@ -58,7 +58,7 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// # Panic
 /// 进程关闭
 /// 
-/// 通知订阅时函数异常会导致进程关闭
+/// 订阅函数异常
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
   handle.subscribe(var, name, body)
 }
