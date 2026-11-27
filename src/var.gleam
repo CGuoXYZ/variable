@@ -4,6 +4,7 @@ import gleam/otp/actor.{type StartError}
 import variable/internal/handle
 import variable/internal/subscribe.{type Subscribe}
 
+/// 进程句柄
 pub type Var(v) =
   handle.Var(v)
 
