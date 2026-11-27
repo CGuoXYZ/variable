@@ -24,7 +24,7 @@ pub fn new() -> Subscribes(v) {
 }
 
 /// 获取订阅数量
-pub fn numbers(subscribes: Subscribes(v)) -> Int {
+pub fn count(subscribes: Subscribes(v)) -> Int {
   dict.size(subscribes.subs)
 }
 

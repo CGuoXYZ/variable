@@ -55,8 +55,8 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// 
 /// # Panic
 /// 进程关闭
-pub fn subscribe_numbers(var: Var(v)) -> Int {
-  handle.subscribe_numbers(var)
+pub fn subscribe_count(var: Var(v)) -> Int {
+  handle.subscribe_count(var)
 }
 
 /// 获取订阅名称列表

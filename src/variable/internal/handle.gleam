@@ -87,7 +87,7 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// 
 /// # Panic
 /// 进程关闭
-pub fn subscribe_numbers(var: Var(v)) -> Int {
+pub fn subscribe_count(var: Var(v)) -> Int {
   SubscribeQuantity(subject: _)
   |> process.call_forever(var.subject, _)
 }
@@ -144,7 +144,7 @@ fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
     Get(subject:) -> get_msg(val, subject)
     Set(subject:, new:) -> set_msg(val, subject, new)
     Update(subject:, update:) -> update_msg(val, subject, update)
-    SubscribeQuantity(subject:) -> subscribe_numbers_msg(val, subject)
+    SubscribeQuantity(subject:) -> subscribe_count_msg(val, subject)
     SubscribeNames(subject:) -> subscribe_names_msg(val, subject)
     Subscribe(subject:, name:, body:) -> subscribe_msg(val, subject, name, body)
     Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
@@ -194,12 +194,12 @@ fn update_msg(
   |> actor.continue()
 }
 
-fn subscribe_numbers_msg(
+fn subscribe_count_msg(
   val: Val(v),
   subject: Subject(Int),
 ) -> Next(Val(v), Message(v)) {
   // 返回订阅数量
-  process.send(subject, subscribe.numbers(val.subs))
+  process.send(subject, subscribe.count(val.subs))
   actor.continue(val)
 }
 
