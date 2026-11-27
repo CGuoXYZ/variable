@@ -34,6 +34,11 @@ pub fn names(subscribes: Subscribes(v)) -> List(String) {
   [name, ..acc]
 }
 
+/// 指定名称的订阅是否存在
+pub fn is_exists(subscribes: Subscribes(v), name: String) -> Bool {
+  dict.has_key(subscribes.subs, name)
+}
+
 /// 添加订阅
 /// 
 /// # Notice

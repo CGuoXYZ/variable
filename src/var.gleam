@@ -67,6 +67,14 @@ pub fn subscribe_names(var: Var(v)) -> List(String) {
   handle.subscribe_names(var)
 }
 
+/// 指定名称的订阅是否存在
+/// 
+/// # Panic
+/// 进程关闭
+pub fn has_subscribe(var: Var(v), name: String) -> Bool {
+  handle.has_subscribe(var, name)
+}
+
 /// 订阅函数
 /// 
 /// # Notice
