@@ -121,7 +121,7 @@ pub fn same_name_overwrites_test() {
 
   assert take(new, 1) == [#(0, 1)]
   assert_no_message(old)
-  assert subscribe.is_exists(subscribes, "a") == True
+  assert subscribe.has(subscribes, "a") == True
   assert subscribe.count(subscribes) == 1
   stop(subscribes)
 }
@@ -185,36 +185,36 @@ pub fn count_and_names_after_delete_all_test() {
   assert subscribe.names(subscribes) == []
 }
 
-pub fn is_exists_empty_test() {
-  assert subscribe.is_exists(subscribe.new(), "a") == False
+pub fn has_empty_test() {
+  assert subscribe.has(subscribe.new(), "a") == False
 }
 
-pub fn is_exists_after_add_test() {
+pub fn has_after_add_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
 
-  assert subscribe.is_exists(subscribes, "a") == True
-  assert subscribe.is_exists(subscribes, "b") == False
+  assert subscribe.has(subscribes, "a") == True
+  assert subscribe.has(subscribes, "b") == False
   stop(subscribes)
 }
 
-pub fn is_exists_after_delete_test() {
+pub fn has_after_delete_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
     |> subscribe.delete("a")
 
-  assert subscribe.is_exists(subscribes, "a") == False
+  assert subscribe.has(subscribes, "a") == False
 }
 
-pub fn is_exists_after_delete_all_test() {
+pub fn has_after_delete_all_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
     |> subscribe.delete_all()
 
-  assert subscribe.is_exists(subscribes, "a") == False
+  assert subscribe.has(subscribes, "a") == False
 }
 
 /// 同名覆盖时旧订阅进程会被关闭，只剩新进程
