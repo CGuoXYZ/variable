@@ -25,7 +25,7 @@ type Message(v) {
   /// 更新值
   Update(subject: Subject(v), update: fn(v) -> v)
   /// 订阅数量
-  SubscribeQuantity(subject: Subject(Int))
+  SubscribeCount(subject: Subject(Int))
   /// 订阅名称列表
   SubscribeNames(subject: Subject(List(String)))
   /// 订阅
@@ -88,7 +88,7 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// # Panic
 /// 进程关闭
 pub fn subscribe_count(var: Var(v)) -> Int {
-  SubscribeQuantity(subject: _)
+  SubscribeCount(subject: _)
   |> process.call_forever(var.subject, _)
 }
 
@@ -144,7 +144,7 @@ fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
     Get(subject:) -> get_msg(val, subject)
     Set(subject:, new:) -> set_msg(val, subject, new)
     Update(subject:, update:) -> update_msg(val, subject, update)
-    SubscribeQuantity(subject:) -> subscribe_count_msg(val, subject)
+    SubscribeCount(subject:) -> subscribe_count_msg(val, subject)
     SubscribeNames(subject:) -> subscribe_names_msg(val, subject)
     Subscribe(subject:, name:, body:) -> subscribe_msg(val, subject, name, body)
     Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
