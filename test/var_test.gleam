@@ -317,10 +317,10 @@ pub fn update_on_dead_var_panics_test() {
   assert_panics(fn() { var.update(escaped, fn(n) { n + 1 }) })
 }
 
-pub fn subscribe_numbers_on_dead_var_panics_test() {
+pub fn subscribe_count_on_dead_var_panics_test() {
   let escaped = escaped_var()
   let assert True = await_dead(escaped, 100)
-  assert_panics(fn() { var.subscribe_numbers(escaped) })
+  assert_panics(fn() { var.subscribe_count(escaped) })
 }
 
 pub fn subscribe_names_on_dead_var_panics_test() {
@@ -520,25 +520,25 @@ pub fn unsubscribe_all_empty_test() {
 }
 
 /// 订阅数量和名称列表随订阅/退订变化
-pub fn subscribe_numbers_and_names_test() {
+pub fn subscribe_count_and_names_test() {
   with(0, fn(var) {
-    assert var.subscribe_numbers(var) == 0
+    assert var.subscribe_count(var) == 0
     assert var.subscribe_names(var) == []
 
     let _ = var.subscribe(var, "b", fn(_, _) { Nil })
     let _ = var.subscribe(var, "a", fn(_, _) { Nil })
 
-    assert var.subscribe_numbers(var) == 2
+    assert var.subscribe_count(var) == 2
     assert list.sort(var.subscribe_names(var), string.compare) == ["a", "b"]
 
     var.unsubscribe(var, "a")
 
-    assert var.subscribe_numbers(var) == 1
+    assert var.subscribe_count(var) == 1
     assert var.subscribe_names(var) == ["b"]
 
     var.unsubscribe_all(var)
 
-    assert var.subscribe_numbers(var) == 0
+    assert var.subscribe_count(var) == 0
     assert var.subscribe_names(var) == []
   })
 }
@@ -549,7 +549,7 @@ pub fn subscribe_names_overwrite_test() {
     let _ = var.subscribe(var, "a", fn(_, _) { Nil })
     let _ = var.subscribe(var, "a", fn(_, _) { Nil })
 
-    assert var.subscribe_numbers(var) == 1
+    assert var.subscribe_count(var) == 1
     assert var.subscribe_names(var) == ["a"]
   })
 }

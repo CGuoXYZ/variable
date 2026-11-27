@@ -170,11 +170,11 @@ pub fn subscribe_after_closure_panics_test() {
   assert_panics(fn() { handle.subscribe(var, "a", fn(_, _) { Nil }) })
 }
 
-pub fn subscribe_numbers_after_closure_panics_test() {
+pub fn subscribe_count_after_closure_panics_test() {
   let assert Ok(var) = handle.new(0)
   handle.closure(var)
   assert await_dead(var, 100)
-  assert_panics(fn() { handle.subscribe_numbers(var) })
+  assert_panics(fn() { handle.subscribe_count(var) })
 }
 
 pub fn subscribe_names_after_closure_panics_test() {
@@ -319,25 +319,25 @@ pub fn unsubscribe_missing_is_safe_test() {
   })
 }
 
-pub fn subscribe_numbers_and_names_test() {
+pub fn subscribe_count_and_names_test() {
   with_var(0, fn(var) {
-    assert handle.subscribe_numbers(var) == 0
+    assert handle.subscribe_count(var) == 0
     assert handle.subscribe_names(var) == []
 
     let _ = handle.subscribe(var, "b", fn(_, _) { Nil })
     let _ = handle.subscribe(var, "a", fn(_, _) { Nil })
 
-    assert handle.subscribe_numbers(var) == 2
+    assert handle.subscribe_count(var) == 2
     assert list.sort(handle.subscribe_names(var), string.compare) == ["a", "b"]
 
     handle.unsubscribe(var, "a")
 
-    assert handle.subscribe_numbers(var) == 1
+    assert handle.subscribe_count(var) == 1
     assert handle.subscribe_names(var) == ["b"]
 
     handle.unsubscribe_all(var)
 
-    assert handle.subscribe_numbers(var) == 0
+    assert handle.subscribe_count(var) == 0
     assert handle.subscribe_names(var) == []
   })
 }

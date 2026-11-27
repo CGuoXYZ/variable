@@ -137,16 +137,16 @@ pub fn notify_multiple_times_test() {
   stop(subscribes)
 }
 
-pub fn numbers_empty_test() {
-  assert subscribe.numbers(subscribe.new()) == 0
+pub fn count_empty_test() {
+  assert subscribe.count(subscribe.new()) == 0
 }
 
-pub fn numbers_after_add_test() {
+pub fn count_after_add_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
 
-  assert subscribe.numbers(subscribes) == 1
+  assert subscribe.count(subscribes) == 1
   stop(subscribes)
 }
 
@@ -160,26 +160,26 @@ pub fn names_after_add_test() {
   stop(subscribes)
 }
 
-pub fn numbers_and_names_after_delete_test() {
+pub fn count_and_names_after_delete_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
     |> subscribe.add("b", fn(_, _) { Nil })
     |> subscribe.delete("a")
 
-  assert subscribe.numbers(subscribes) == 1
+  assert subscribe.count(subscribes) == 1
   assert subscribe.names(subscribes) == ["b"]
   stop(subscribes)
 }
 
-pub fn numbers_and_names_after_delete_all_test() {
+pub fn count_and_names_after_delete_all_test() {
   let subscribes =
     subscribe.new()
     |> subscribe.add("a", fn(_, _) { Nil })
     |> subscribe.add("b", fn(_, _) { Nil })
     |> subscribe.delete_all()
 
-  assert subscribe.numbers(subscribes) == 0
+  assert subscribe.count(subscribes) == 0
   assert subscribe.names(subscribes) == []
 }
 
