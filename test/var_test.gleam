@@ -5,8 +5,7 @@ import gleam/list
 import gleam/order.{Eq}
 import gleeunit
 
-import var
-import variable/internal/handle.{type Var}
+import var.{type Var}
 
 // ───────────────────────────── 工具 ─────────────────────────────
 
