@@ -123,7 +123,7 @@ pub fn is_alive(var: Var(v)) -> Bool {
 
 fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
   case message {
-    Closure -> actor.stop()
+    Closure -> closure_msg(val)
     Get(subject:) -> get_msg(val, subject)
     Set(subject:, new:) -> set_msg(val, subject, new)
     Update(subject:, update:) -> update_msg(val, subject, update)
@@ -131,6 +131,12 @@ fn handle(val: Val(v), message: Message(v)) -> Next(Val(v), Message(v)) {
     Unsubscribe(subject:, name:) -> unsubscribe_msg(val, subject, name)
     UnsubscribeAll(subject:) -> unsubscribe_all_msg(val, subject)
   }
+}
+
+fn closure_msg(val: Val(v)) -> Next(Val(v), Message(v)) {
+  // 取消所有订阅
+  subscribe.delete_all(val.subs)
+  actor.stop()
 }
 
 fn get_msg(val: Val(v), subject: Subject(v)) -> Next(Val(v), Message(v)) {
