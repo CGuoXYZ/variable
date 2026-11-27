@@ -84,6 +84,8 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// 
 /// # Panic
 /// 进程关闭
+/// 
+/// 通知订阅时函数异常会导致进程关闭
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
   Subscribe(subject: _, name:, body:)
   |> process.call_forever(var.subject, _)

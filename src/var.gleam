@@ -4,7 +4,7 @@ import gleam/otp/actor.{type StartError}
 import variable/internal/handle.{type Var}
 import variable/internal/subscribe.{type Subscribe}
 
-/// 创建临时的可变值, 回调结束自动关闭(关闭是异步的)
+/// 创建临时的可变值, 回调结束自动关闭
 /// 
 /// # Panic
 /// 函数异常
@@ -54,6 +54,8 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// 
 /// # Panic
 /// 进程关闭
+/// 
+/// 通知订阅时函数异常会导致进程关闭
 pub fn subscribe(var: Var(v), name: String, body: Subscribe(v)) -> Nil {
   handle.subscribe(var, name, body)
 }
