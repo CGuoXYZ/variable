@@ -184,6 +184,13 @@ pub fn subscribe_names_after_closure_panics_test() {
   assert_panics(fn() { handle.subscribe_names(var) })
 }
 
+pub fn has_subscribe_after_closure_panics_test() {
+  let assert Ok(var) = handle.new(0)
+  handle.closure(var)
+  assert await_dead(var, 100)
+  assert_panics(fn() { handle.has_subscribe(var, "a") })
+}
+
 // ─────────────────────────── 订阅 ───────────────────────────
 
 pub fn subscribe_notifies_test() {
@@ -339,6 +346,19 @@ pub fn subscribe_count_and_names_test() {
 
     assert handle.subscribe_count(var) == 0
     assert handle.subscribe_names(var) == []
+  })
+}
+
+pub fn has_subscribe_test() {
+  with_var(0, fn(var) {
+    assert handle.has_subscribe(var, "a") == False
+
+    let _ = handle.subscribe(var, "a", fn(_, _) { Nil })
+    assert handle.has_subscribe(var, "a") == True
+    assert handle.has_subscribe(var, "b") == False
+
+    handle.unsubscribe(var, "a")
+    assert handle.has_subscribe(var, "a") == False
   })
 }
 

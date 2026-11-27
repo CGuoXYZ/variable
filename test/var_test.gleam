@@ -329,6 +329,12 @@ pub fn subscribe_names_on_dead_var_panics_test() {
   assert_panics(fn() { var.subscribe_names(escaped) })
 }
 
+pub fn has_subscribe_on_dead_var_panics_test() {
+  let escaped = escaped_var()
+  let assert True = await_dead(escaped, 100)
+  assert_panics(fn() { var.has_subscribe(escaped, "a") })
+}
+
 pub fn subscribe_on_dead_var_panics_test() {
   let escaped = escaped_var()
   let assert True = await_dead(escaped, 100)
@@ -551,6 +557,35 @@ pub fn subscribe_names_overwrite_test() {
 
     assert var.subscribe_count(var) == 1
     assert var.subscribe_names(var) == ["a"]
+    assert var.has_subscribe(var, "a") == True
+  })
+}
+
+/// 按名称检查订阅是否存在
+pub fn has_subscribe_test() {
+  with(0, fn(var) {
+    assert var.has_subscribe(var, "a") == False
+    assert var.has_subscribe(var, "b") == False
+
+    let _ = var.subscribe(var, "a", fn(_, _) { Nil })
+
+    assert var.has_subscribe(var, "a") == True
+    assert var.has_subscribe(var, "b") == False
+
+    let _ = var.subscribe(var, "b", fn(_, _) { Nil })
+
+    assert var.has_subscribe(var, "a") == True
+    assert var.has_subscribe(var, "b") == True
+
+    var.unsubscribe(var, "a")
+
+    assert var.has_subscribe(var, "a") == False
+    assert var.has_subscribe(var, "b") == True
+
+    var.unsubscribe_all(var)
+
+    assert var.has_subscribe(var, "a") == False
+    assert var.has_subscribe(var, "b") == False
   })
 }
 
