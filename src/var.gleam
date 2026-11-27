@@ -10,7 +10,7 @@ pub type Var(v) =
 /// 创建临时的可变值, 回调结束自动关闭
 /// 
 /// # Panic
-/// 函数异常
+/// 回调函数异常
 pub fn scope(
   val: v,
   body: fn(Var(v)) -> response,
