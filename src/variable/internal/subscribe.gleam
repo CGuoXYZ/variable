@@ -1,9 +1,17 @@
 import gleam/dict.{type Dict}
-import gleam/erlang/process
+import gleam/erlang/process.{type Subject}
+
+/// 订阅的消息
+type Message(v) {
+  /// 关闭订阅
+  Closure
+  /// 通知订阅
+  Notify(old: v, new: v)
+}
 
 /// 订阅函数字典
 pub opaque type Subscribes(v) {
-  Subscribes(subs: Dict(String, Subscribe(v)))
+  Subscribes(subs: Dict(String, Subject(Message(v))))
 }
 
 /// 订阅函数
@@ -24,17 +32,46 @@ pub fn add(
   name: String,
   body: Subscribe(v),
 ) -> Subscribes(v) {
+  // 若订阅已存在则删除
+  let subscribes = delete(subscribes, name)
+
+  // 准备接收订阅的subject
+  let ready = process.new_subject()
+
+  // 为订阅创建链接进程
+  process.spawn(fn() {
+    // 订阅进程用于接收消息
+    let subject = process.new_subject()
+    // 发送订阅的subject
+    process.send(ready, subject)
+
+    // 订阅循环
+    loop(body, subject)
+  })
+
+  // 接收订阅的subject
+  let subject = process.receive_forever(ready)
   // 添加订阅
-  Subscribes(dict.insert(subscribes.subs, name, body))
+  Subscribes(subs: dict.insert(subscribes.subs, name, subject))
 }
 
 /// 取消订阅
 pub fn delete(subscribes: Subscribes(v), name: String) -> Subscribes(v) {
-  Subscribes(dict.delete(subscribes.subs, name))
+  case dict.get(subscribes.subs, name) {
+    // 订阅不存在原样返回
+    Error(_) -> subscribes
+    Ok(subject) -> {
+      // 发送消息关闭订阅
+      process.send(subject, Closure)
+      // 从字典删除订阅
+      Subscribes(dict.delete(subscribes.subs, name))
+    }
+  }
 }
 
 /// 取消所有订阅
-pub fn delete_all(_subscribes: Subscribes(v)) -> Subscribes(v) {
+pub fn delete_all(subscribes: Subscribes(v)) -> Subscribes(v) {
+  dict.each(subscribes.subs, fn(_, v) { process.send(v, Closure) })
   new()
 }
 
@@ -43,7 +80,20 @@ pub fn delete_all(_subscribes: Subscribes(v)) -> Subscribes(v) {
 /// # Panic
 /// 订阅异常
 pub fn notify(subscribes: Subscribes(v), old: v, new: v) -> Nil {
-  use _, body <- dict.each(subscribes.subs)
-  use <- process.spawn()
-  body(old, new)
+  use _, subject <- dict.each(subscribes.subs)
+  process.send(subject, Notify(old, new))
+}
+
+/// 订阅循环
+fn loop(body: Subscribe(v), subject: Subject(Message(v))) -> Nil {
+  // 等待消息
+  case process.receive_forever(subject) {
+    Closure -> Nil
+    Notify(old:, new:) -> {
+      // 执行订阅函数
+      body(old, new)
+      // 循环
+      loop(body, subject)
+    }
+  }
 }
