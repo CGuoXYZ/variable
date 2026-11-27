@@ -63,13 +63,13 @@ pub fn main() -> Result(Nil, StartError) {
   var.update(val, string.append(_, "world"))
 
   // 获取订阅数量和名称列表
-  assert var.subscribe_numbers(val) == 1
+  assert var.subscribe_count(val) == 1
   assert var.subscribe_names(val) == ["log"]
 
   // 使用名称取消订阅
   var.unsubscribe(val, "log")
 
-  assert var.subscribe_numbers(val) == 0
+  assert var.subscribe_count(val) == 0
   assert var.subscribe_names(val) == []
 
   Nil
