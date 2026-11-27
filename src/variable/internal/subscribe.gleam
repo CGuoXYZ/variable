@@ -1,6 +1,5 @@
 import gleam/dict.{type Dict}
 import gleam/erlang/process.{type Subject}
-import gleam/otp/actor
 
 /// 订阅句柄
 pub opaque type Subscribes(v) {
