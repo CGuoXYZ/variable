@@ -55,6 +55,8 @@ pub fn update(var: Var(v), update: fn(v) -> v) -> v {
 /// # Notice
 /// 会覆盖重名订阅
 /// 
+/// 通知订阅时不保证顺序
+/// 
 /// # Panic
 /// 进程关闭
 /// 
