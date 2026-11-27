@@ -106,8 +106,6 @@ pub fn subscribe_names(var: Var(v)) -> List(String) {
 /// # Notice
 /// 会覆盖重名订阅
 /// 
-/// 通知订阅时不保证顺序
-/// 
 /// # Panic
 /// 进程关闭
 /// 
