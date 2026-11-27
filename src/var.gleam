@@ -1,8 +1,11 @@
 import exception
 import gleam/otp/actor.{type StartError}
 
-import variable/internal/handle.{type Var}
+import variable/internal/handle
 import variable/internal/subscribe.{type Subscribe}
+
+pub type Var(v) =
+  handle.Var(v)
 
 /// 创建临时的可变值, 回调结束自动关闭
 /// 
